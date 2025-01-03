@@ -1,118 +1,51 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import {Button, View} from 'react-native';
+import * as RNIap from 'react-native-iap';
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+RNIap.setup({storekitMode: 'STOREKIT2_MODE'});
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+function App() {
+  async function logSubscriptionsDetails() {
+    let activeSubscriptionsCount = 0;
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+    // Fetch the product, otherwise `getAvailablePurchases` will return an empty array
+    await RNIap.getProducts({skus: ['premium_one_month', 'premium_six_months']});
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+    for (const purchase of await RNIap.getAvailablePurchases({
+      onlyIncludeActiveItems: true,
+    })) {
+      const entitledPurchase = await RNIap.IapIosSk2.currentEntitlement(purchase.productId);
+      const expirationDate = new Date(entitledPurchase.expirationDate);
+
+      const subscriptionStatus = await RNIap.IapIosSk2.subscriptionStatus(purchase.productId);
+      const isSubscribed = subscriptionStatus.some(status => status.state === 'subscribed');
+
+      if (isSubscribed && expirationDate.getTime() > Date.now()) {
+        activeSubscriptionsCount++;
+        logSubscriptionDetails(purchase.productId, expirationDate, entitledPurchase.offerID);
+      }
+    }
+
+    if (activeSubscriptionsCount === 0) {
+      console.log('User has no active subscriptions');
+    }
+  }
+
+  function logSubscriptionDetails(productId: string, expirationDate: Date, offerId?: string) {
+    console.log(`User has an active subscription for ${productId}`);
+    console.log(`Subscription will expire at ${expirationDate.toLocaleString()}`);
+
+    if (typeof offerId === 'string') {
+      console.log(`User subscribed with offer ID ${offerId}`);
+    }
+  }
+
   return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
+    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+      <Button title="Get Subscription Details" onPress={logSubscriptionsDetails} />
+      {/* Use this to finish purchases made through xcode Transaction Manager */}
+      <Button title="Clear transactions" onPress={RNIap.clearTransactionIOS} />
     </View>
   );
 }
-
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
-
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
